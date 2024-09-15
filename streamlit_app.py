@@ -1,66 +1,56 @@
-import altair as alt
 import pandas as pd
+import altair as alt
 import streamlit as st
 
-# Show the page title and description.
-st.set_page_config(page_title="Movies dataset_test", page_icon="🎬")
-st.title("🎬 Movies dataset")
-st.write(
-    """
-    This app visualizes data from [The Movie Database (TMDB)](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata).
-    It shows which movie genre performed best at the box office over the years. Just 
-    click on the widgets below to explore!
-    """
-)
-
-
-# Load the data from a CSV. We're caching this so it doesn't reload every time the app
-# reruns (e.g. if the user interacts with the widgets).
+# Caching the data to avoid reloading
 @st.cache_data
 def load_data():
-    df = pd.read_csv("data/movies_genres_summary.csv")
+    df = pd.read_csv("test_temperature_data.csv")
     return df
-
 
 df = load_data()
 
-# Show a multiselect widget with the genres using `st.multiselect`.
-genres = st.multiselect(
-    "Genres",
-    df.genre.unique(),
-    ["Action", "Adventure", "Biography", "Comedy", "Drama", "Horror"],
+# Show a multiselect widget with the temperature points and other data columns
+TP = st.multiselect(
+    "Temperature Point/Parameter",
+    df.columns,
+    ["Temperature_Point_1", "Temperature_Point_2", "Temperature_Point_3", "Temperature_Point_5", "Temperature_Point_6", "Current (A)", "Voltage (V)"],
 )
 
-# Show a slider widget with the years using `st.slider`.
-years = st.slider("Years", 1986, 2006, (2000, 2016))
+# Remove any duplicate selections
+TP = list(set(TP))
 
-# Filter the dataframe based on the widget input and reshape it.
-df_filtered = df[(df["genre"].isin(genres)) & (df["year"].between(years[0], years[1]))]
-df_reshaped = df_filtered.pivot_table(
-    index="year", columns="genre", values="gross", aggfunc="sum", fill_value=0
-)
-df_reshaped = df_reshaped.sort_values(by="year", ascending=False)
+# Show a slider widget for the temperature range
+temp_range = st.slider("Temperature Range (°C)", 25, 100, (25, 100))
 
+# Filter the dataframe based on the selected temperature range (assumes we are focusing on Temperature_Point_1 for this filter)
+df_filtered = df[(df["Temperature_Point_1"].between(temp_range[0], temp_range[1]))]
 
-# Display the data as a table using `st.dataframe`.
+# Reshape the dataframe to have temperature points and current/voltage data
+df_reshaped = df_filtered[TP]
+
+# Display the filtered data as a table
 st.dataframe(
     df_reshaped,
     use_container_width=True,
-    column_config={"year": st.column_config.TextColumn("Year")},
 )
 
-# Display the data as an Altair chart using `st.altair_chart`.
+# Preparing the data for visualization with Altair
 df_chart = pd.melt(
-    df_reshaped.reset_index(), id_vars="year", var_name="genre", value_name="gross"
+    df_reshaped.reset_index(), id_vars="index", var_name="Parameter", value_name="Value"
 )
+
+# Create a chart
 chart = (
     alt.Chart(df_chart)
     .mark_line()
     .encode(
-        x=alt.X("year:N", title="Year"),
-        y=alt.Y("gross:Q", title="Gross earnings ($)"),
-        color="genre:N",
+        x=alt.X("index:N", title="Index"),
+        y=alt.Y("Value:Q", title="Measured Values"),
+        color="Parameter:N",
     )
     .properties(height=320)
 )
+
+# Display the chart
 st.altair_chart(chart, use_container_width=True)
