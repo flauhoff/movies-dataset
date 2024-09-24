@@ -5,23 +5,44 @@ import streamlit as st
 # Caching the data to avoid reloading
 @st.cache_data
 def load_data():
-    df = pd.read_csv("test_temperature_data.csv")
+    df = pd.read_csv("project_managment.csv")
+    df= df.dropna()
     return df
 
 df = load_data()
 
+### Labels
+
+df.columns = df.columns.str.strip()
+unique_labels = df["Label"].drop_duplicates()
 # Show a multiselect widget with the temperature points and other data columns
 TP = st.multiselect(
-    "Temperature Point/Parameter",
-    df.columns,
-    ["Temperature_Point_1", "Temperature_Point_2", "Temperature_Point_3", "Temperature_Point_5", "Temperature_Point_6", "Current (A)", "Voltage (V)"],
-)
+    "Projectmanagment_labels",unique_labels)
 
 # Remove any duplicate selections
 TP = list(set(TP))
 
-# Show a slider widget for the temperature range
-temp_range = st.slider("Temperature Range (°C)", 25, 100, (25, 100))
+### zeitrange
+df["Start"] = pd.to_datetime(df["Start"], format="%d.%m.%Y")
+df["Ende"] = pd.to_datetime(df["Ende"], format="%d.%m.%Y")
+
+# Get the earliest "Start" and latest "Ende" dates, converting them to Python's datetime type
+start = df["Start"].min().to_pydatetime()
+ende = df["Ende"].max().to_pydatetime()
+
+# Create a slider for the time range based on the dataset
+time_range = st.slider(
+    "Select Time Range",
+    min_value=start,
+    max_value=ende,
+    value=(start, ende),
+    format="DD.MM.YYYY"  # Use European date format in the slider
+)
+
+st.write(f"Selected time range: {time_range[0].strftime('%d.%m.%Y')} to {time_range[1].strftime('%d.%m.%Y')}")
+
+
+
 
 # Filter the dataframe based on the selected temperature range (assumes we are focusing on Temperature_Point_1 for this filter)
 df_filtered = df[(df["Temperature_Point_1"].between(temp_range[0], temp_range[1]))]
